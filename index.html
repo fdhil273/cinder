@@ -225,6 +225,7 @@
 <video id="cam" playsinline muted style="display:none"></video>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script src="cerita.js"></script>
 <script>
 (() => {
 "use strict";
@@ -435,26 +436,11 @@ function teleportMonster() {
    Pemain memulihkan catatan, bukan menjawab soal. */
 /* Kata kerjanya memutuskan, bukan menghitung:
    dua angka nyata + satu total tertulis. Cocok atau palsu? */
-const STORY = [
-  "Malam pertama <b>{a}</b> liter. Malam kedua <b>{b}</b> liter.<br>Di buku tertulis total <b>{t}</b> liter.",
-  "Ada <b>{a}</b> kaleng, tiap kaleng <b>{b}</b> liter.<br>Di buku tertulis total <b>{t}</b> liter.",
-  "<b>{a}</b> langkah ke ujung lorong, lalu <b>{b}</b> langkah lagi.<br>Di buku tertulis total <b>{t}</b> langkah."
-];
-const ASK = ["isi angka yang hilang", "isi angka yang hilang", "isi angka yang hilang"];
+/* Teks cerita (STORY, ASK, CHAPTERS) dipindah ke cerita.js
+   sebagai window.JEDA_CERITA; di sini cukup ambil referensinya. */
+const { STORY, ASK, CHAPTERS } = window.JEDA_CERITA;
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const PAGES = 10;
-const CHAPTERS = [
-  "Kamu guru piket. Jam sebelas lewat, lorong sekolah tinggal lampu darurat.",
-  "Di kelas 3A papan tulis masih menulis namamu — padahal kau belum masuk.",
-  "Loker 27 terbuka. Di dalamnya seragam basah, ukuran anak SMP.",
-  "Langkah di ujung koridor berhenti tepat saat kau berhenti.",
-  "Daftar absen kelas malam: tiga puluh satu nama. Muridnya tiga puluh.",
-  "Di kaca jendela ada satu bayangan yang berdiri lebih dekat dari tadi.",
-  "Kau hitung ubin: jumlahnya berkurang setiap kali kau berkedip.",
-  "Dia tidak berjalan. Dia hanya sudah ada di tempat lain.",
-  "Bel berbunyi. Listrik sudah mati sejak setengah jam lalu.",
-  "Halaman terakhir kosong. Cuma satu baris: namamu, dan tanda tanganmu.",
-];
 function makeQ() {
   const lvl = Math.min(4, Math.floor(score / 3));
   const mul = score >= 4 && Math.random() < .35;
