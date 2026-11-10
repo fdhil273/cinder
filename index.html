@@ -216,13 +216,17 @@
   <p><b>Berpaling memakan satu nyawa.</b> Wajahmu harus tetap terlihat kamera.</p>
   <p>Selesaikan <b>10 halaman</b> dan kau pulang. Habiskan nyawa dan ia sampai.</p>
   <small>Kamera &amp; mikrofon diproses di perangkatmu. Tidak ada yang dikirim keluar.</small>
+  <video id="cam" playsinline muted style="max-width:240px;max-height:180px;transform:scaleX(-1);border-radius:6px;background:#000;margin:8px auto 4px;display:block"></video>
+  <div id="calibStatus" style="font:11px/1.5 var(--mono);color:var(--dim);margin:0 0 8px">
+    <div id="calibBase">baseline: menunggu kamera</div>
+    <div id="calibMata">mata: -</div>
+    <div id="calibKedip">kedip: 0</div>
+  </div>
   <div class="row">
-    <button class="go" id="startFull">Izinkan kamera &amp; mikrofon</button>
+    <button class="go" id="startFull" disabled style="opacity:.45;cursor:not-allowed">Izinkan kamera &amp; mikrofon</button>
     <button id="startLite">Main tanpa sensor</button>
   </div>
 </div></div>
-
-<video id="cam" playsinline muted style="display:none"></video>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 <script src="cerita.js"></script>
@@ -230,7 +234,7 @@
 (() => {
 "use strict";
 const $ = (s) => document.querySelector(s);
-const LIVES_MAX = 8, CLOCK_MS = 5000, PUSH = 1, SAFE_MS = 1200;
+const LIVES_MAX = 8, CLOCK_MS = 7000, PUSH = 1, SAFE_MS = 1200;
 const SIM = new URLSearchParams(location.search).get("sense") === "sim";
 
 let lives = LIVES_MAX, score = 0, running = false, muted = false, q = null, timer = 0, safeUntil = 0, heartT = 0, growlT = 0;
@@ -440,7 +444,7 @@ function teleportMonster() {
    sebagai window.JEDA_CERITA; di sini cukup ambil referensinya. */
 const { STORY, ASK, CHAPTERS } = window.JEDA_CERITA;
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
-const PAGES = 10;
+const PAGES = 6;
 function makeQ() {
   const lvl = Math.min(4, Math.floor(score / 3));
   const mul = score >= 4 && Math.random() < .35;
@@ -567,40 +571,130 @@ function tickCam() {
 function onFace(res) {
   const l = res.multiFaceLandmarks && res.multiFaceLandmarks[0];
   if (!l) { markFace(false); return; }
-  /* yaw kasar: hidung relatif terhadap pipi kiri/kanan (1, 234, 454) */
-  const dL = Math.hypot(l[1].x - l[234].x, l[1].y - l[234].y);
-  const dR = Math.hypot(l[1].x - l[454].x, l[1].y - l[454].y);
-  const ratio = dL / (dL + dR);
-  markFace(Math.abs(ratio - .5) < .14);
+  /* deteksi kedip via EAR; berpaling (yaw) tidak lagi menghukum */
+  const base = earBaseline > 0 ? earBaseline : 0.22;
+  const closed = computeEAR(l) < base * 0.72;
+  if (closed) {
+    earClosedFrames++;
+    if (earClosedFrames >= 2 && blinkArmed) { blinkArmed = false; blinkPending = true; }
+  } else {
+    earClosedFrames = 0;
+    blinkArmed = true;
+  }
+  markFace(true);
 }
 function markFace(ok) {
   faceOk = ok;
   if (ok) { faceMissingSince = 0; setFaceLabel(true); return; }
   if (!faceMissingSince) faceMissingSince = performance.now();
 }
-/* evaluasi dilakukan oleh detak 100ms, bukan per frame: hasilnya sama
-   di kamera nyata maupun di mode simulasi */
+/* evaluasi hukuman dilakukan oleh detak 100ms (cooldown + jendela aman),
+   bukan per frame; hasilnya sama di kamera nyata maupun mode simulasi */
 function faceTick(now) {
-  if (!camOn) { setFaceLabel(true, true); return; }
-  if (now < safeUntil) { setFaceLabel(true, false); return; }
-  if (!faceOk && faceMissingSince && now - faceMissingSince > 600) {
-    setFaceLabel(false);
-    if (running && now - faceCool > 1200) {
-      faceCool = now; faceHits++;
-      penalize("jangan berpaling");
+  if (!sensorsWanted) { setFaceLabel(true, true); return; }       /* tanpa sensor: tanpa hukuman wajah */
+  if (now < safeUntil) { setFaceLabel(true, false); blinkPending = false; return; } /* jendela aman: bebas kedip & R6 */
+  if (camOn && faceMesh) {
+    /* mode sensor normal: hukuman kedip (EAR) */
+    setFaceLabel(true, false);
+    if (blinkPending && running && now - blinkCool > 1500) {
+      blinkCool = now; blinkPending = false; faceHits++;
+      penalize("kedip");
     }
+    return;
+  }
+  /* fallback R6: kamera mati atau FaceMesh tidak tersedia -> wajah hilang */
+  if (!camOn && !faceMissingSince) faceMissingSince = now;
+  if (faceMissingSince && now - faceMissingSince > 600) {
+    setFaceLabel(false);
+    if (running && now - faceCool > 1200) { faceCool = now; faceHits++; penalize("jangan berpaling"); }
   } else if (faceOk) {
     setFaceLabel(true, false);
   }
 }
-let faceCool = 0;
+let faceCool = 0, sensorsWanted = false, earClosedFrames = 0, blinkArmed = true, blinkPending = false, blinkCool = 0;
+
+/* ---------------- KALIBRASI (sebelum ronde) ---------------- */
+/* Menyalakan kamera di layar intro, mengukur baseline EAR (3 detik),
+   lalu mengaktifkan tombol "Izinkan kamera & mikrofon".
+   "Main tanpa sensor" selalu aktif. Tidak menyentuh mekanik nyawa/jam/hukuman. */
+let calibFM = null, calibStream = null, calibLoop = 0, calibOn = false, calibStart = 0;
+let earSamples = [], earBaseline = 0, blinkCount = 0, eyesClosed = false, calibDone = false;
+const EYE_L = [33, 160, 158, 133, 153, 144];
+const EYE_R = [362, 385, 387, 263, 373, 380];
+function earEye(lm, idx) {
+  /* EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|) */
+  const p1 = lm[idx[0]], p2 = lm[idx[1]], p3 = lm[idx[2]], p4 = lm[idx[3]], p5 = lm[idx[4]], p6 = lm[idx[5]];
+  const dd = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  return (dd(p2, p6) + dd(p3, p5)) / (2 * dd(p1, p4));
+}
+function computeEAR(lm) { return (earEye(lm, EYE_L) + earEye(lm, EYE_R)) / 2; }
+function medianOf(arr) {
+  const s = arr.slice().sort((x, y) => x - y), n = s.length;
+  return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+}
+function calibOnResults(res) {
+  const l = res.multiFaceLandmarks && res.multiFaceLandmarks[0];
+  const eBase = $("#calibBase"), eMata = $("#calibMata"), eKedip = $("#calibKedip");
+  if (!l) { if (eMata) eMata.textContent = "mata: tidak terlihat"; return; }
+  const ear = computeEAR(l);
+  const open = earBaseline > 0 ? ear >= earBaseline * 0.7 : ear >= 0.20;
+  if (eMata) eMata.textContent = "mata: " + (open ? "terbuka" : "tertutup");
+  if (!calibDone) {
+    earSamples.push(ear);
+    if (eBase) eBase.textContent = "baseline: mengukur (" + earSamples.length + ")";
+    if (earSamples.length >= 30 && performance.now() - calibStart >= 3000) {
+      earBaseline = medianOf(earSamples); calibDone = true;
+      if (eBase) eBase.textContent = "baseline: " + earBaseline.toFixed(2);
+      const sf = $("#startFull"); sf.disabled = false; sf.style.opacity = ""; sf.style.cursor = "";
+    }
+    return;
+  }
+  /* hitung kedip: transisi tertutup -> terbuka */
+  if (!open && !eyesClosed) eyesClosed = true;
+  else if (open && eyesClosed) { eyesClosed = false; blinkCount++; }
+  if (eKedip) eKedip.textContent = "kedip: " + blinkCount;
+}
+async function calibInit() {
+  if (calibOn) return;
+  calibOn = true; calibStart = performance.now();
+  try {
+    calibStream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360, facingMode: "user" } });
+    if (!calibOn) { calibStream.getTracks().forEach((t) => t.stop()); calibStream = null; return; }
+    const cam = $("#cam");
+    cam.srcObject = calibStream; await cam.play();
+    if (typeof window.FaceMesh === "undefined") { calibStop(); return; }
+    calibFM = new window.FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+    calibFM.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: .5, minTrackingConfidence: .5 });
+    calibFM.onResults(calibOnResults);
+    const go = async () => {
+      if (!calibOn) return;
+      if (cam.readyState >= 2) { try { await calibFM.send({ image: cam }); } catch {} }
+      calibLoop = requestAnimationFrame(go);
+    };
+    go();
+  } catch (e) {
+    const eBase = $("#calibBase");
+    if (eBase) eBase.textContent = "baseline: kamera tidak tersedia";
+    calibOn = false;
+  }
+}
+function calibStop() {
+  calibOn = false;
+  if (calibLoop) cancelAnimationFrame(calibLoop);
+  calibLoop = 0;
+  if (calibFM) { try { calibFM.close(); } catch {} calibFM = null; }
+  if (calibStream) { calibStream.getTracks().forEach((t) => t.stop()); calibStream = null; }
+}
 
 /* ---------------- MULAI / SELESAI ---------------- */
 async function start(withSensors) {
+  calibStop();
   audioInit();
   $("#intro").classList.add("hide");
   lives = LIVES_MAX; score = 0; noiseHits = 0; faceHits = 0; running = true; waitT = 0;
   baseline = 0; calibrating = true; calT = 0;
+  sensorsWanted = withSensors;
+  earClosedFrames = 0; blinkArmed = true; blinkPending = false; blinkCool = 0; faceCool = 0;
   camOn = SIM;                /* di mode simulasi kamera dianggap hidup */
   const mel = $("#mon");
   mel.classList.remove("show", "big", "eat", "twitch");
@@ -706,7 +800,7 @@ window.__sim = {
     console.assert(Number.isInteger(x.ans) && x.ans > 0, "jawaban bulat positif");
     console.assert(x.idx >= 0 && x.idx < STORY.length, "indeks cerita valid");
   }
-  console.assert(LIVES_MAX === 8 && CLOCK_MS === 5000 && PUSH >= 1 && SAFE_MS === 1200, "konstanta");
+  console.assert(LIVES_MAX === 8 && CLOCK_MS === 7000 && PUSH >= 1 && SAFE_MS === 1200 && PAGES === 6, "konstanta");
 })();
 
 /* deterministik untuk screenshot: ?play=1&lives=2&show=8000 */
@@ -717,6 +811,9 @@ if (qp.get("play")) {
   if (qp.get("die")) setTimeout(() => { lives = 1; penalize("uji"); }, 400);
 }
 paint();
+
+/* nyalakan kalibrasi kamera di layar intro (bukan mode uji/play/sim) */
+if (qp.get("test") !== "1" && !qp.get("play") && !SIM) calibInit();
 
 /* ---------------- mode uji mandiri (?test=1) ---------------- */
 /* Tanpa ?test=1 blok ini tidak dijalankan; perilaku game tak berubah. */

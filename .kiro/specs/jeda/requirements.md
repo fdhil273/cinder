@@ -1,6 +1,6 @@
 # Requirements — JEDA
 
-Permainan satu berkas HTML: guru piket membukukan 10 halaman catatan
+Permainan satu berkas HTML: guru piket membukukan 6 halaman catatan
 sambil sesuatu di ujung lorong mendekat tiap nyawa hilang. Tanpa
 dependency, tanpa framework, tanpa build step. Komentar dalam Bahasa
 Indonesia.
@@ -19,13 +19,13 @@ URL params `?sense=sim` / `?play=1` / `?lives=` / `?die=1`).
 - **R3** WHEN nyawa berkurang atau bertambah THE SYSTEM SHALL menjaga nyawa pada rentang 0 sampai 8 (LIVES_MAX) dan tidak menampilkan nilai negatif.
   Uji: paksa `?die=1`, baca `document.querySelector('#nLives').textContent`; `console.assert(Number(t) >= 0 && Number(t) <= 8)`.
 
-- **R4** WHEN ronde berjalan dan 5 detik (CLOCK_MS) telah berlalu THE SYSTEM SHALL mengurangi satu nyawa melalui denyut (beat).
-  Uji: jalankan ronde, catat waktu, tunggu >5 d, bandingkan `state().lives` sebelum dan sesudah; selisih = 1.
+- **R4** WHEN ronde berjalan dan 7 detik (CLOCK_MS = 7000) telah berlalu THE SYSTEM SHALL mengurangi satu nyawa melalui denyut (beat).
+  Uji: jalankan ronde, catat waktu, tunggu >7 d, bandingkan `state().lives` sebelum dan sesudah; selisih = 1.
 
 - **R5** WHEN level suara melebihi ambang (NOISE_ON) dan 900 ms cooldown telah terlewati THE SYSTEM SHALL mengurangi satu nyawa paling cepat sekali per 900 ms.
   Uji: `?sense=sim`, panggil `window.__sim.noise()` dua kali cepat <900 ms; hanya lives berkurang 1.
 
-- **R6** WHEN wajah tidak terdeteksi lebih dari 600 ms THE SYSTEM SHALL mengurangi satu nyawa.
+- **R6** WHEN wajah tidak terdeteksi lebih dari 600 ms (berlaku hanya bila kamera mati) THE SYSTEM SHALL mengurangi satu nyawa.
   Uji: `?sense=sim`, panggil `lookAway()` tunggu >600 ms lalu baca `state().lives`; berkurang 1.
 
 - **R7** WHEN jawaban benar diberikan THE SYSTEM SHALL menambah satu nyawa (maksimum 8) dan membuka jendela aman 1,2 detik.
@@ -37,5 +37,8 @@ URL params `?sense=sim` / `?play=1` / `?lives=` / `?die=1`).
 - **R9** WHEN nyawa berkurang THE SYSTEM SHALL memilih pose monster yang berbeda dari pose sebelumnya.
   Uji: turunkan nyawa berulang, catat `#mon.src` tiap kali; `console.assert` dua nilai berturut-turut tidak pernah sama.
 
-- **R10** WHEN sepuluh halaman selesai THE SYSTEM SHALL menampilkan layar kemenangan; WHEN nyawa habis THE SYSTEM SHALL memutar urutan monster membesar, lalu layar hitam 1,5 detik, lalu teks kekalahan.
-  Uji: selesaikan 10 jawaban benar, periksa `#over` punya class `on` dan judul "Sepuluh halaman."; paksa lives=0, periksa `#blackout.on` lalu `#over.on` muncul ~1,5 d kemudian.
+- **R10** WHEN enam halaman (PAGES = 6) selesai THE SYSTEM SHALL menampilkan layar kemenangan; WHEN nyawa habis THE SYSTEM SHALL memutar urutan monster membesar, lalu layar hitam 1,5 detik, lalu teks kekalahan.
+  Uji: selesaikan 6 jawaban benar, periksa `#over` punya class `on`; paksa lives=0, periksa `#blackout.on` lalu `#over.on` muncul ~1,5 d kemudian.
+
+- **R11** WHEN kedua mata tertutup lebih dari 2 frame berturut THE SYSTEM SHALL mengurangi satu nyawa, paling cepat sekali tiap 1500 ms.
+  Uji: dengan kamera hidup, tutup mata >2 frame berturut, periksa `state().lives` berkurang 1; dua kedip cepat <1500 ms hanya mengurang 1.
