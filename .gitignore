@@ -12,3 +12,6 @@ dist/
 # berkas sementara
 __syntaxcheck.js
 _t.html
+
+# tangkapan layar pengujian
+shots/
