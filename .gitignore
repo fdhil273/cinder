@@ -8,3 +8,7 @@ dist/
 .DS_Store
 
 # JANGAN tambahkan .kiro di sini — syarat lomba
+
+# berkas sementara
+__syntaxcheck.js
+_t.html
