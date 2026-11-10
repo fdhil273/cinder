@@ -28,10 +28,10 @@
     height:calc(13vh + 58vh*var(--prox));width:auto;pointer-events:none;user-select:none;z-index:2;
     opacity:0;transition:opacity .07s linear;
     filter:brightness(calc(.46 + .42*var(--prox))) contrast(calc(1.2 + .25*var(--prox))) saturate(.62)
-           drop-shadow(0 0 22px rgba(255,70,25,.22));
+           drop-shadow(0 0 16px rgba(255,70,25,.10));
     }
   #mon::before{content:"";position:absolute;inset:-18%;z-index:-1;
-    background:radial-gradient(ellipse at 50% 55%, rgba(0,0,0,.92), rgba(0,0,0,.55) 52%, transparent 74%)}
+    background:radial-gradient(ellipse at 50% 55%, rgba(0,0,0,.72), rgba(0,0,0,.34) 52%, transparent 74%)}
   #mon.show{opacity:1}
   /* napas buatan dihapus: monster diam total, hanya berpindah */
   #mon.eat{animation:none;transition:transform 1.05s cubic-bezier(.35,0,.9,.35), filter .8s;
@@ -45,10 +45,10 @@
     transition:transform 1.05s cubic-bezier(.32,0,.86,.32), opacity .22s linear;
     filter:brightness(.95) contrast(1.18) saturate(.62)}
   #mug.on{opacity:1;transform:translate(-50%,-50%) scale(3.15)}
-  #monShadow{position:fixed;left:50%;bottom:calc(48% - 41%*var(--prox));transform:translateX(-50%);
-    width:calc(6vh + 27vh*var(--prox));height:calc(1.2vh + 2.6vh*var(--prox));pointer-events:none;z-index:1;opacity:0;
-    background:radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.95), rgba(0,0,0,.5) 48%, transparent 72%);
-    filter:blur(9px);transition:opacity .12s}
+  #monShadow{position:fixed;left:50%;bottom:calc(47.2% - 41%*var(--prox));transform:translateX(-50%);
+    width:calc(18vh + 40vh*var(--prox));height:calc(3vh + 5.4vh*var(--prox));pointer-events:none;z-index:1;opacity:0;
+    background:radial-gradient(ellipse at 50% 46%, rgba(0,0,0,.92) 24%, rgba(0,0,0,.62) 54%, transparent 80%);
+    filter:blur(12px);transition:opacity .12s}
   #monShadow.show{opacity:1}
   #lamps{position:absolute;inset:0;pointer-events:none}
   #lamps i{position:absolute;width:30%;height:46%;pointer-events:none;opacity:0;
